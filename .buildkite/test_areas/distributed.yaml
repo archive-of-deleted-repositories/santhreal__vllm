@@ -174,7 +174,7 @@ steps:
   # test multi-node TP with multiproc executor (simulated on single node)
   - pytest -v -s distributed/test_multiproc_executor.py::test_multiproc_executor_multi_node
 
-- label: Distributed Tests (8 GPUs)(H100)
+- label: Distributed Tests (8xH100)
   key: ***REMOVED***
   timeout_in_minutes: 10
   device: h100
@@ -195,7 +195,7 @@ steps:
   # test with torchrun tp=2 and dp=4 with ep
   - torchrun --nproc-per-node=8 ../examples/features/torchrun/torchrun_dp_example_offline.py --tp-size=2 --pp-size=1 --dp-size=4 --enable-ep
 
-- label: Distributed Tests (4 GPUs)(A100)
+- label: Distributed Tests (4xA100)
   key: ***REMOVED***
   device: a100
   optional: true
@@ -237,8 +237,8 @@ steps:
       - VLLM_ALLOW_INSECURE_SERIALIZATION=1 pytest -v -s tests/distributed/test_weight_transfer.py
       - pytest -v -s tests/distributed/test_packed_tensor.py
 
-- label: Distributed Tests (2 GPUs)(B200)
-  key: ***REMOVED***
+- label: Distributed Tests (2xB200)
+  key: distributed-tests-2xb200
   device: b200-k8s
   optional: true
   working_dir: "/vllm-workspace/"
