@@ -113,10 +113,49 @@ class TestInternLM2ToolParser(ToolParserTests):
                     "content instead of None - streaming/non-streaming inconsistency"
                 ),
             },
-            xfail_nonstreaming={
-                "test_malformed_input": (
-                    "InternLM2 parser raises JSONDecodeError on malformed JSON "
-                    "instead of gracefully handling it"
-                ),
-            },
+            xfail_nonstreaming={},
         )
+
+    def test_malformed_input_returns_unparsed_content(
+        self, tokenizer: TokenizerLike
+    ) -> None:
+        """Malformed tool-call output must not raise; the parser returns the
+        original text as content with tools_called=False."""
+        from vllm.tool_parsers.internlm2_tool_parser import Internlm2ToolParser
+
+        parser = Internlm2ToolParser(tokenizer)
+        request = MagicMock()
+
+        malformed_cases = [
+            '<|action_start|><|plugin|>{"name": "func", "parameters": {',
+            "<|action_start|><|plugin|>not json<|action_end|>",
+            '<|action_start|><|plugin|>{"arguments": {}}<|action_end|>',
+            "<|action_start|><|plugin|>[]<|action_end|>",
+        ]
+        for model_output in malformed_cases:
+            result = parser.extract_tool_calls(model_output, request)
+            assert result.tools_called is False
+            assert result.tool_calls == []
+            assert result.content == model_output
+
+    def test_multiple_action_markers_parses_first_call(
+        self, tokenizer: TokenizerLike
+    ) -> None:
+        """Two tool-call blocks must not crash the unpacking; the first call
+        is extracted rather than raising a ValueError."""
+        from vllm.tool_parsers.internlm2_tool_parser import Internlm2ToolParser
+
+        parser = Internlm2ToolParser(tokenizer)
+        request = MagicMock()
+        request.tools = None
+
+        model_output = (
+            '<|action_start|><|plugin|>{"name": "get_weather", '
+            '"parameters": {"city": "Tokyo"}}<|action_end|>'
+            '<|action_start|><|plugin|>{"name": "get_time", '
+            '"parameters": {}}<|action_end|>'
+        )
+        result = parser.extract_tool_calls(model_output, request)
+        assert result.tools_called is True
+        assert len(result.tool_calls) == 1
+        assert result.tool_calls[0].function.name == "get_weather"
